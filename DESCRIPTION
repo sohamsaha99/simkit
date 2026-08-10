@@ -1,0 +1,38 @@
+Package: simkit
+Title: Tidy Pipelines for Statistical Simulation Studies
+Version: 0.0.0.9000
+Authors@R:
+    person("Riddhiman", "Saha", , "riddhimansaha@fas.harvard.edu", role = c("aut", "cre"))
+Description: Provides a tidy, pipeline-based framework for statistical
+    simulation studies. Handles parallelism, checkpointed storage, fault
+    tolerance, progress reporting, and performance evaluation so
+    researchers can focus on estimators and scenarios.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Depends:
+    R (>= 4.1.0)
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 8.0.0
+Imports:
+    cli (>= 3.4.0),
+    digest (>= 0.6.30),
+    fs (>= 1.5.0),
+    future (>= 1.30.0),
+    future.apply (>= 1.10.0),
+    jsonlite (>= 1.8.0),
+    parallel,
+    progressr (>= 0.13.0),
+    rlang (>= 1.1.0),
+    dplyr (>= 1.1.0),
+    stats,
+    tidyr (>= 1.3.0),
+    utils
+Suggests:
+    testthat (>= 3.0.0),
+    withr (>= 2.5.0),
+    ggplot2 (>= 3.4.0),
+    future.batchtools,
+    knitr,
+    rmarkdown
+Config/testthat/edition: 3
+VignetteBuilder: knitr

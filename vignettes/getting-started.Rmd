@@ -1,0 +1,178 @@
+---
+title: "Getting Started with simkit"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with simkit}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup, message = FALSE}
+library(simkit)
+library(future)
+library(ggplot2)
+
+plan(sequential)
+```
+
+`simkit` structures a Monte Carlo simulation study as a pipeline: describe
+*what* to simulate and *how* to estimate it, run it once, then evaluate and
+plot the results. This vignette walks through that pipeline end to end,
+comparing three estimators of the mean under normal and heavy-tailed errors.
+
+To keep this vignette fast to build, it uses `replicates = 500` and a small
+bootstrap size. In a real study you would typically use several hundred to a
+few thousand replicates.
+
+## 1. Design
+
+A `SimDesign` is assembled by adding components together with `+`. Start with
+`sim_design()`, then add a scenario grid, one or more methods, and a storage
+location.
+
+`sim_scenario_grid()` expands a list of parameters into one named scenario
+per combination:
+
+```{r design}
+storage_path <- tempfile("simkit_getting_started_")
+
+design <- sim_design(
+    replicates  = 500,
+    seed        = 42,
+    label       = "mean_estimators_v1",
+    description = "Comparing sample mean, trimmed mean, and median under
+                   normal and heavy-tailed errors."
+  ) +
+
+  sim_scenario_grid(
+    params  = list(n = c(30, 100), dist = c("normal", "t3")),
+    name_fn = function(p) paste0(p$dist, "_n", p$n),
+    dgp     = function(p) {
+      if (p$dist == "normal") rnorm(p$n, mean = 2, sd = 1)
+      else                    2 + rt(p$n, df = 3)
+    },
+    truth = function(p) list(mean = 2)
+  ) +
+
+  sim_method(
+    name = "sample_mean",
+    fn   = function(data, params) {
+      se <- sd(data) / sqrt(params$n)
+      list(est = mean(data), se = se,
+           ci_lo = mean(data) - 1.96 * se,
+           ci_hi = mean(data) + 1.96 * se)
+    }
+  ) +
+
+  sim_method(
+    name = "trimmed_mean",
+    fn   = sim_bootstrap(
+      estimator = function(data, params) list(est = mean(data, trim = 0.1)),
+      B = 50, statistic = "est", output = c("se", "ci")
+    )
+  ) +
+
+  sim_method(
+    name = "median",
+    fn   = sim_bootstrap(
+      estimator = function(data, params) list(est = median(data)),
+      B = 50, statistic = "est", output = c("se", "ci")
+    )
+  ) +
+
+  sim_storage(path = storage_path, resume = TRUE)
+
+design
+```
+
+## 2. Validate
+
+Before committing to a full run, `sim_check()` runs a handful of trial
+replicates for every (scenario, method) pair in an ephemeral scratch
+directory -- never the design's configured storage path -- and reports
+pass/fail with timing:
+
+```{r check}
+sim_check(design, replicates = 2)
+```
+
+## 3. Run
+
+`sim_run()` executes every replicate, writing one `.rds` file per
+(scenario, method, replicate) to the storage path as it goes. A deliberate
+per-replicate error is recorded as a sentinel file rather than halting the
+run (the default `on_error = "warn"`), and rerunning with
+`sim_storage(resume = TRUE)` skips replicates already on disk.
+
+```{r run}
+results <- sim_run(design, progress = FALSE)
+results
+```
+
+## 4. Evaluate
+
+`sim_collect()` reads the stored replicates back into a single tidy tibble,
+and `sim_evaluate()` applies one or more user-supplied metric functions to
+every (scenario, method) pair, comparing simulated output against the
+scenario's `truth`:
+
+```{r evaluate}
+evaluation <- results |>
+  sim_collect() |>
+  sim_evaluate(
+    bias     = function(sims, truth) mean(sims$est) - truth$mean,
+    mse      = function(sims, truth) mean((sims$est - truth$mean)^2),
+    variance = function(sims, truth) var(sims$est),
+    coverage = function(sims, truth) mean(sims$ci_lo <= truth$mean &
+                                          truth$mean <= sims$ci_hi)
+  )
+
+evaluation
+```
+
+`sim_summarize()` pivots the long-format evaluation into one row per
+(scenario, method) with a column per metric:
+
+```{r summarize}
+sim_summarize(evaluation)
+```
+
+## 5. Report
+
+`sim_plot()` extracts scenario parameters from their names and maps them to
+plot aesthetics, returning an ordinary `ggplot` object that can be extended
+with further layers:
+
+```{r plot, fig.width = 6, fig.height = 4}
+evaluation |>
+  sim_plot(metric = "mse", x = "n", color = "method") +
+  labs(title = "MSE of mean estimators under normal vs. heavy-tailed errors")
+```
+
+## 6. Revisit later
+
+`sim_catalog()` indexes every experiment found under a root directory, and
+`sim_load()` recovers a `SimDesign` and its results from a catalog entry --
+handy for coming back to a study in a fresh R session without re-specifying
+the design:
+
+```{r catalog}
+catalog_root <- dirname(storage_path)
+sim_catalog(catalog_root)
+
+sim_catalog(catalog_root) |>
+  sim_load() |>
+  sim_collect() |>
+  head()
+```
+
+```{r cleanup, include = FALSE}
+unlink(storage_path, recursive = TRUE)
+```

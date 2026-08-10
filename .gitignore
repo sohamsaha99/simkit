@@ -1,0 +1,21 @@
+# R package build artifacts
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+*.Rcheck/
+*.tar.gz
+/doc/
+/Meta/
+/inst/doc
+
+# pkgdown output
+/docs
+
+# OS / editor cruft
+.DS_Store
+.quarto
+.httr-oauth
+
+# personal, machine-local Claude Code settings (not shared config)
+.claude/settings.local.json

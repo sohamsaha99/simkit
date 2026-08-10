@@ -1,0 +1,42 @@
+url: ~
+template:
+  bootstrap: 5
+
+reference:
+- title: Design
+  desc: >
+    Build a SimDesign by adding scenarios, methods, and configuration
+    together with `+`.
+  contents:
+  - sim_design
+  - "`+.SimDesign`"
+  - validate_SimDesign
+  - sim_scenario
+  - sim_scenario_grid
+  - sim_method
+  - sim_bootstrap
+  - sim_parallel
+  - sim_storage
+
+- title: Run
+  desc: >
+    Validate a design, execute it, and collect the results.
+  contents:
+  - sim_check
+  - sim_run
+  - sim_collect
+
+- title: Evaluate
+  desc: >
+    Turn collected results into tidy metrics, summaries, and plots.
+  contents:
+  - sim_evaluate
+  - sim_summarize
+  - sim_plot
+
+- title: Utilities
+  desc: >
+    Revisit past simulation runs.
+  contents:
+  - sim_catalog
+  - sim_load
